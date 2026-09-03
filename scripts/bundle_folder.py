@@ -18,10 +18,14 @@ from rich.table import Table
 IGNORE_FILE = ".bundleignore"
 
 
-def load_ignore_spec(ignore_path: Path) -> pathspec.PathSpec | None:
-    if not ignore_path.is_file():
+def build_ignore_spec(ignore_path: Path, extra_patterns: list[str]) -> pathspec.PathSpec | None:
+    lines: list[str] = []
+    if ignore_path.is_file():
+        lines.extend(ignore_path.read_text().splitlines())
+    lines.extend(extra_patterns)
+    if not lines:
         return None
-    return pathspec.PathSpec.from_lines("gitwildmatch", ignore_path.read_text().splitlines())
+    return pathspec.PathSpec.from_lines("gitwildmatch", lines)
 
 
 def collect_files(root: Path, spec: pathspec.PathSpec | None) -> list[Path]:
@@ -53,22 +57,11 @@ def scan_files(
     return results
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Count files by extension in a directory tree.")
-    parser.add_argument("path", type=Path, help="Root directory to scan")
-    parser.add_argument("--ignore", type=Path, help=f"Ignore file (default: <path>/{IGNORE_FILE})")
-    args = parser.parse_args()
-
-    root: Path = args.path.resolve()
-    if not root.is_dir():
-        raise SystemExit(f"Error: {root} is not a directory")
-
-    ignore_path = args.ignore or root / IGNORE_FILE
-    spec = load_ignore_spec(ignore_path)
-
+def scan_and_display(root: Path, spec: pathspec.PathSpec | None, console: Console) -> None:
     files = collect_files(root, spec)
     if not files:
-        raise SystemExit(f"No files found in {root}")
+        console.print("[red]No files found after applying ignore patterns.[/red]")
+        return
 
     with Progress() as progress:
         scan_results = scan_files(files, progress)
@@ -131,10 +124,39 @@ def main() -> None:
     total_folder_comp_mb = sum(folder_compressed.values()) / (1024 * 1024)
     folder_table.add_row("Total", str(sum(folder_counts.values())), f"{total_folder_mb:.2f}", f"{total_folder_comp_mb:.2f}", "", style="bold")
 
-    console = Console()
     console.print(table)
     console.print()
     console.print(folder_table)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Count files by extension in a directory tree.")
+    parser.add_argument("path", type=Path, help="Root directory to scan")
+    parser.add_argument("--ignore", type=Path, help=f"Ignore file (default: <path>/{IGNORE_FILE})")
+    args = parser.parse_args()
+
+    root: Path = args.path.resolve()
+    if not root.is_dir():
+        raise SystemExit(f"Error: {root} is not a directory")
+
+    ignore_path = args.ignore or root / IGNORE_FILE
+    extra_patterns: list[str] = []
+    console = Console()
+
+    while True:
+        spec = build_ignore_spec(ignore_path, extra_patterns)
+        scan_and_display(root, spec, console)
+        console.print()
+        console.print("[bold]q[/bold] quit  [bold]a[/bold] add pattern to ignore")
+        choice = input("> ").strip().lower()
+        if choice == "q":
+            break
+        elif choice == "a":
+            pattern = input("Enter pattern to ignore (e.g. *.log, docs/): ").strip()
+            if pattern:
+                extra_patterns.append(pattern)
+                console.print(f"Added pattern: [cyan]{pattern}[/cyan]")
+            console.print()
 
 
 if __name__ == "__main__":
