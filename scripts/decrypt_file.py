@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Decrypt .dta files from the outgoing folder using Fernet and place them in incoming."""
+"""Decrypt .dta files from the outgoing folder using Fernet and place them in incoming.
+
+Usage: uv run python scripts/decrypt_file.py
+"""
 
 import getpass
 import sys

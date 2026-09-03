@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Encrypt files from the incoming folder using Fernet and place them in outgoing."""
+"""Encrypt files from the incoming folder using Fernet and place them in outgoing.
+
+Usage: uv run python scripts/encrypt_file.py
+"""
 
 import getpass
 import sys
