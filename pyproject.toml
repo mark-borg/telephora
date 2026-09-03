@@ -7,7 +7,7 @@ authors = [
     { name = "Mark Borg", email = "mark.borg@vgw.co" }
 ]
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["cryptography"]
 
 [project.scripts]
 msc-repo = "msc_repo:main"
