@@ -6,6 +6,7 @@ Usage: uv run python scripts/bundle_folder.py <path> [--ignore <file>]
 
 import argparse
 import os
+import zipfile
 import zlib
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -16,6 +17,8 @@ from rich.progress import Progress
 from rich.table import Table
 
 IGNORE_FILE = ".bundleignore"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+INCOMING_DIR = PROJECT_ROOT / "incoming"
 
 
 def build_ignore_spec(ignore_path: Path, extra_patterns: list[str]) -> pathspec.PathSpec | None:
@@ -129,6 +132,27 @@ def scan_and_display(root: Path, spec: pathspec.PathSpec | None, console: Consol
     console.print(folder_table)
 
 
+def bundle_files(root: Path, spec: pathspec.PathSpec | None, console: Console) -> None:
+    files = collect_files(root, spec)
+    if not files:
+        console.print("[red]No files to bundle.[/red]")
+        return
+
+    folder_name = root.name or "root"
+    zip_path = INCOMING_DIR / f"{folder_name}.zip"
+
+    with Progress() as progress:
+        task = progress.add_task("Bundling files...", total=len(files))
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for filepath in files:
+                arcname = str(filepath.relative_to(root))
+                zf.write(filepath, arcname)
+                progress.advance(task)
+
+    size_mb = zip_path.stat().st_size / (1024 * 1024)
+    console.print(f"[green]Bundle saved:[/green] {zip_path} ({size_mb:.2f} MB, {len(files)} files)")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Count files by extension in a directory tree.")
     parser.add_argument("path", type=Path, help="Root directory to scan")
@@ -147,7 +171,7 @@ def main() -> None:
         spec = build_ignore_spec(ignore_path, extra_patterns)
         scan_and_display(root, spec, console)
         console.print()
-        console.print("[bold]q[/bold] quit  [bold]a[/bold] add pattern to ignore")
+        console.print("[bold]q[/bold] quit  [bold]a[/bold] add pattern to ignore  [bold]b[/bold] bundle to zip")
         choice = input("> ").strip().lower()
         if choice == "q":
             break
@@ -157,6 +181,9 @@ def main() -> None:
                 extra_patterns.append(pattern)
                 console.print(f"Added pattern: [cyan]{pattern}[/cyan]")
             console.print()
+        elif choice == "b":
+            bundle_files(root, spec, console)
+            break
 
 
 if __name__ == "__main__":
