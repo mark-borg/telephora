@@ -26,24 +26,24 @@ def main():
 
     print(f"Found {len(files)} .dta file(s) in outgoing/")
 
-    original_name = input("Enter original filename (e.g. my_code.zip) to verify UUID and use as output name: ")
-    expected_uuid = str(uuid.uuid5(NAMESPACE, original_name))
-
-    matched = [f for f in files if f.stem == expected_uuid]
-    if not matched:
-        print(f"Error: no file matching UUID {expected_uuid} for '{original_name}'", file=sys.stderr)
-        sys.exit(1)
-
     key = getpass.getpass("Enter Fernet key: ").encode()
     fernet = Fernet(key)
 
-    for source in matched:
+    for source in files:
         ciphertext = source.read_bytes()
         try:
-            plaintext = fernet.decrypt(ciphertext)
+            data = fernet.decrypt(ciphertext)
         except InvalidToken:
             print(f"Error: decryption failed for {source.name} — wrong key or corrupted file", file=sys.stderr)
             continue
+
+        name_len = int.from_bytes(data[:2], "big")
+        original_name = data[2 : 2 + name_len].decode()
+        plaintext = data[2 + name_len :]
+
+        expected_uuid = str(uuid.uuid5(NAMESPACE, original_name))
+        if source.stem != expected_uuid:
+            print(f"Warning: UUID mismatch for {source.name} (expected {expected_uuid})", file=sys.stderr)
 
         output_path = INCOMING_DIR / original_name
         output_path.write_bytes(plaintext)

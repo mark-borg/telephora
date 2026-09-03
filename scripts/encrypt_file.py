@@ -37,7 +37,9 @@ def main():
 
     for source in files:
         plaintext = source.read_bytes()
-        ciphertext = fernet.encrypt(plaintext)
+        name_bytes = source.name.encode()
+        header = len(name_bytes).to_bytes(2, "big") + name_bytes
+        ciphertext = fernet.encrypt(header + plaintext)
 
         name_uuid = uuid.uuid5(NAMESPACE, source.name)
         output_path = OUTGOING_DIR / f"{name_uuid}.dta"
