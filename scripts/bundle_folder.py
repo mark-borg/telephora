@@ -54,6 +54,9 @@ def scan_files(
     results = []
     task = progress.add_task("Scanning files...", total=len(files))
     for filepath in files:
+        if filepath.is_symlink() or not filepath.is_file():
+            progress.advance(task)
+            continue
         data = filepath.read_bytes()
         results.append((filepath, len(data), len(zlib.compress(data))))
         progress.advance(task)
@@ -163,7 +166,7 @@ def main() -> None:
     if not root.is_dir():
         raise SystemExit(f"Error: {root} is not a directory")
 
-    ignore_path = args.ignore or root / IGNORE_FILE
+    ignore_path = args.ignore or PROJECT_ROOT / IGNORE_FILE
     extra_patterns: list[str] = []
     console = Console()
 
