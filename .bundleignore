@@ -3,4 +3,4 @@ __pycache__/
 .venv/
 .git/
 .claude/settings.local.json
-
+.DS_Store
