@@ -1,3 +1,4 @@
 incoming/*
 !incoming/.gitkeep
 outgoing/.log
+.DS_Store
